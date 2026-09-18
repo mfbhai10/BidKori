@@ -1,0 +1,127 @@
+===============================================================================
+ BidKori — Phase 2 Build Summary
+ AI Listing Assistant & Product Catalog
+ Generated: 2026-09-10
+===============================================================================
+
+1. CELERY AI TASK (products/tasks.py)
+─────────────────────────────────────
+   generate_ai_description_task(product_id, extra_specs="")
+     • Runs exclusively inside Celery worker (Rule 3 — non-blocking)
+     • Uses `from google import genai` → `genai.Client(api_key=...)`
+     • Loads product image via Pillow, sends multimodal prompt to gemini-2.5-flash
+     • Generates structured markdown:
+       - ## Overview (2-3 sentence value proposition)
+       - ## Physical Condition Assessment (visual inspection)
+       - ## Technical Highlights & Specifications (bulleted specs)
+     • Saves generated text → Product.description
+     • Saves metadata → Product.ai_metadata (model, status, timestamp, char_count)
+     • Retries up to 3 times on transient failures
+     • Returns success payload: { product_id, status, description }
+
+2. API ENDPOINTS
+────────────────
+   POST   /api/products/create/
+     → Multipart form data (title, category, condition, image)
+     → Creates Product record, returns full serialized product
+
+   POST   /api/products/<uuid>/generate-description/
+     → Dispatches Celery task, returns { task_id, status: "PENDING" }
+
+   GET    /api/tasks/<task_id>/status/
+     → Polls Celery AsyncResult, returns { task_id, status, result? }
+     → Status values: PENDING → STARTED → SUCCESS / FAILURE
+
+   PATCH  /api/products/<uuid>/
+     → Partial update — seller edits AI-generated or manual description
+
+   POST   /api/products/<uuid>/publish-auction/
+     → Validates: starting_bid, bid_increment, reserve_price, start_time, end_time
+     → Creates Auction record: LIVE if start_time ≤ now, else SCHEDULED
+     → Returns { message, auction_id, status }
+
+3. SERIALIZERS (products/serializers.py)
+────────────────────────────────────────
+   ProductCreateSerializer  — multipart create (title, category, condition, image)
+   ProductSerializer        — full read with seller_email
+   ProductUpdateSerializer  — partial update (title, category, condition, description)
+   AuctionPublishSerializer — validates auction scheduling constraints:
+                              end_time > start_time, reserve_price ≥ starting_bid
+
+4. SELLER LISTING UI (templates/products/create_listing.html)
+─────────────────────────────────────────────────────────────
+   Three-step wizard with dark-mode glassmorphism design:
+
+   Step 1 — Product Info:
+     • Drag-and-drop image upload with live preview
+     • Title input, category dropdown (11 categories), condition card selector
+     • Optional "Additional Specs" field for AI context
+     • "Create Listing" button → POST /api/products/create/
+
+   Step 2 — AI Description:
+     • "✨ Auto-Generate with AI" button (purple gradient)
+     • Dispatches Celery task → polls /api/tasks/<id>/status/ every 2s
+     • Spinner + status text during generation
+     • Auto-populates <textarea> with fade-in animation on SUCCESS
+     • "Save Description & Continue" → PATCH /api/products/<id>/
+
+   Step 3 — Auction Settings:
+     • Starting Bid, Bid Increment, Reserve Price (৳ currency)
+     • Start Time, End Time (datetime-local pickers)
+     • Info banner: "If start time ≤ now → LIVE, else → SCHEDULED"
+     • "🚀 Publish Auction" → POST /api/products/<id>/publish-auction/
+
+   Success State:
+     • Green checkmark animation
+     • Shows auction status (LIVE / SCHEDULED) and auction ID
+     • Links: "Create Another" + "View in Admin"
+
+   Technical details:
+     • Tailwind CSS via CDN (zero Node builds)
+     • Vanilla JavaScript (no React/Vue/Alpine)
+     • Session auth + CSRF token for all fetch() calls
+     • Toast notifications for success/error feedback
+     • Step indicator with progress bars
+     • Responsive: works on mobile + desktop
+
+5. BASE TEMPLATE (templates/base.html)
+──────────────────────────────────────
+   • Dark gradient background (slate-950 → slate-900)
+   • Glassmorphism sticky navbar with BidKori branding
+   • Google Fonts (Inter)
+   • Tailwind CDN with custom config (brand colors, animations)
+   • Toast notification system (success/error/info)
+   • CSRF cookie helper for JavaScript fetch() calls
+
+6. URL ROUTING
+──────────────
+   Root urls.py updated with:
+     path('api/products/', include('products.urls'))
+     path('api/tasks/<task_id>/status/', TaskStatusView)
+     path('seller/create-listing/', CreateListingView)
+
+7. FILES CREATED / MODIFIED
+────────────────────────────
+   NEW:
+     products/tasks.py           — Celery AI task
+     products/serializers.py     — DRF serializers
+     products/views.py           — API + template views
+     products/urls.py            — Product API routes
+     templates/base.html         — Dark-mode base template
+     templates/products/create_listing.html — Listing wizard
+
+   MODIFIED:
+     bidkori_core/urls.py        — Added product + task + seller routes
+
+8. HOW TO ACCESS
+────────────────
+   1. Log in via Django Admin: http://localhost:8000/admin/
+   2. Navigate to: http://localhost:8000/seller/create-listing/
+   3. Upload image → fill fields → generate AI description → publish auction
+
+   Note: AI generation requires a valid GEMINI_API_KEY in .env
+
+===============================================================================
+ Next Phase: Phase 3 — Real-Time Bidding Engine (WebSocket consumers, 
+             atomic row-locking, anti-sniping, Celery Beat scheduler)
+===============================================================================

@@ -1,0 +1,30 @@
+# Antigravity Rules for BidKori System
+
+## System Identity & Core Objective
+
+You are an expert full-stack engineer and distributed systems architect. You are developing **BidKori**, a real-time online auction marketplace tailored for Bangladesh[cite: 1]. The system operates under both C2C and B2C models, combining a high-concurrency WebSocket live bidding engine with multimodal AI listing generation and platform governance[cite: 1].
+
+## Technical Stack & Constraints
+
+- **Runtime & Web Framework:** Python 3.11+, Django, Django REST Framework (DRF)[cite: 1]
+- **ASGI & Real-Time:** Daphne, Django Channels, Redis Channel Layer[cite: 1]
+- **Concurrency & Database:** PostgreSQL 16 (strict ACID transactions, explicit row locking via `select_for_update()`)[cite: 1]
+- **Task Queue & Scheduler:** Celery, Celery Beat, Redis (Message Broker)[cite: 1]
+- **Frontend Architecture:** Django Templates + Tailwind CSS + Vanilla JavaScript / Alpine.js (Lightweight, zero complex Node builds)[cite: 1]
+- **AI Integrations:** Google Gemini SDK (`gemini-3.8-flash`) via background Celery tasks[cite: 1]
+
+## Architecture Rules & Implementation Standards
+
+1. **Zero Race Conditions on Bids:**
+   - Every incoming bid over WebSockets MUST be processed within an atomic database transaction using `select_for_update()` or an atomic Redis lock.
+   - Never compute bid validity in memory without acquiring the lock.
+2. **Strict Server-Authoritative Logic:**
+   - The frontend must NEVER calculate countdown timers, winner determination, or bid eligibility[cite: 1]. All countdowns and lifecycle transitions are governed by the server[cite: 1].
+3. **Async Offloading for Heavy Tasks:**
+   - All AI API interactions, text/image moderation, email dispatching, and scheduled state transitions MUST run inside Celery tasks[cite: 1]. Never block the HTTP/WebSocket request-response cycle.
+4. **Data Isolation & Anti-Fraud:**
+   - Shill Bidding Prevention: Ensure sellers cannot bid on their own listings under any circumstance[cite: 1].
+   - Masked Contact Information: Buyer delivery details must remain protected and hidden until post-auction settlement (transaction fee or GMV allowance deduction) is verified[cite: 1].
+5. **Incremental Phased Execution:**
+   - Only execute the phase explicitly requested by the user. Do not generate speculative code for future phases prematurely.
+   - Always reference `PROJECT_BLUEPRINT.md` for consistent database model definitions and URL naming schemes.

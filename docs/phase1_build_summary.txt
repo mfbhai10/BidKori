@@ -1,0 +1,99 @@
+===============================================================================
+ BidKori — Phase 1 Build Summary
+ Foundations, Containerization & Core Data Models
+ Generated: 2026-09-10
+===============================================================================
+
+1. CONTAINER INFRASTRUCTURE
+───────────────────────────
+   docker-compose.yml  — 5 services:
+     • web           : Django ASGI via Daphne on port 8000
+     • db            : PostgreSQL 16 on port 5432 (volume: postgres_data)
+     • redis         : Redis 7 Alpine on port 6379 (Channel Layer + Celery broker)
+     • celery_worker : Celery worker for background tasks
+     • celery_beat   : Celery Beat scheduler for auction state transitions
+
+   Dockerfile         — Python 3.11-slim, netcat for health-check
+   entrypoint.sh      — Waits for Postgres → runs migrate → collectstatic → exec CMD
+   .dockerignore      — Keeps build context lean
+   .env.example       — All environment variable templates
+   requirements.txt   — 14 pinned dependency groups
+
+2. DJANGO PROJECT STRUCTURE
+───────────────────────────
+   Project root module : bidkori_core/
+     • settings.py  — PostgreSQL, Redis Channel Layer, Celery, DRF+JWT, CORS, Asia/Dhaka TZ
+     • celery.py    — Celery app with autodiscovery
+     • asgi.py      — ProtocolTypeRouter (HTTP + WebSocket stub for Phase 3)
+     • wsgi.py      — WSGI fallback
+     • urls.py      — /admin/ + /api/auth/ routes
+
+   Modular Django apps (5):
+     • users        — Custom User model & SellerProfile
+     • products     — Product catalog
+     • auctions     — Auction state machine & Bid records
+     • billing      — Transaction & monetisation
+     • moderation   — Placeholder for Phase 5
+
+3. DATABASE MODELS (PostgreSQL)
+───────────────────────────────
+   users.User
+     UUID PK, email (unique, login field), phone (unique),
+     role (BUYER | INDIVIDUAL_SELLER | BUSINESS_SELLER | ADMIN),
+     is_verified, created_at.
+     Inherits AbstractUser.
+
+   users.SellerProfile
+     UUID PK, 1-to-1 → User.
+     business_name, trade_license_number, rating (DECIMAL 3,2),
+     is_premium, monthly_gmv_allowance, used_gmv, billing_cycle_end.
+
+   products.Product
+     UUID PK, FK → User (seller).
+     title, category, condition (USED | REFURBISHED | LIKE_NEW),
+     description, image (ImageField), ai_metadata (JSONB), created_at.
+
+   auctions.Auction
+     UUID PK, 1-to-1 → Product.
+     starting_bid, current_bid, bid_increment, reserve_price (nullable),
+     start_time, end_time, status (10-state FSM), FK → User (winner, nullable).
+     Composite indexes: (status, start_time), (status, end_time).
+
+   auctions.Bid
+     UUID PK, FK → Auction, FK → User (bidder).
+     amount, ip_address (GenericIPAddressField), user_agent, created_at.
+     Index: (auction, -amount).
+
+   billing.Transaction
+     UUID PK, FK → Auction, FK → User (buyer), FK → User (seller).
+     final_amount, platform_fee, covered_by_subscription,
+     is_unlocked (contact gate), payment_status, created_at.
+
+4. AUTH & API ENDPOINTS
+───────────────────────
+   POST /api/auth/register/        — Public registration (email, phone, role, password)
+   POST /api/auth/login/           — JWT token pair (access + refresh)
+   POST /api/auth/token/refresh/   — Refresh token rotation
+   GET  /api/auth/profile/         — Authenticated user profile
+   PUT  /api/auth/profile/         — Update own profile
+
+   Authentication: Bearer JWT (60 min access, 7 day refresh)
+   Session auth enabled for Django Admin.
+
+5. DJANGO ADMIN
+───────────────
+   All 6 models registered with:
+     • Searchable fields (email, phone, title, category, IP, etc.)
+     • Filterable columns (role, status, is_premium, payment_status, etc.)
+     • Grouped fieldsets for clean data entry
+     • Inline SellerProfile editor inside User admin
+     • Short UUID display for Auction/Bid/Transaction list views
+
+6. HOW TO RUN
+─────────────
+   $ cp .env.example .env        # (adjust secrets for production)
+   $ docker compose up --build   # boots all 5 services, runs migrations automatically
+
+===============================================================================
+ Next Phase: Phase 2 — AI Listing Assistant & Product Catalog
+===============================================================================

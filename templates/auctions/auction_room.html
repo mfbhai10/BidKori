@@ -1,0 +1,508 @@
+{% extends "base.html" %}
+{% block title %}{{ auction.product.title }} — Live Auction{% endblock %}
+{% block meta_description %}Bid live on {{ auction.product.title }} at BidKori.{% endblock %}
+
+{% block content %}
+<!-- ── Outbid Alert Banner ──────────────────────────────── -->
+<div id="outbid-banner" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-3.5 rounded-xl bg-gradient-to-r from-red-600/95 to-red-700/95 border border-red-500/50 backdrop-blur-xl shadow-2xl shadow-red-900/40 animate-slide-up">
+    <div class="flex items-center gap-3">
+        <span class="text-xl">⚠️</span>
+        <span class="text-white font-semibold text-sm" id="outbid-text">You've been outbid!</span>
+        <button onclick="this.parentElement.parentElement.classList.add('hidden')" class="ml-2 text-red-300 hover:text-white text-lg">&times;</button>
+    </div>
+</div>
+
+<!-- ── Anti-Snipe Alert ──────────────────────────────────── -->
+<div id="snipe-banner" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl bg-gradient-to-r from-amber-600/95 to-amber-700/95 border border-amber-500/50 backdrop-blur-xl shadow-2xl animate-slide-up">
+    <div class="flex items-center gap-3">
+        <span class="text-lg">⏱️</span>
+        <span class="text-white font-semibold text-sm">Anti-snipe: Timer extended by 60 seconds!</span>
+    </div>
+</div>
+
+<!-- ── Status Pill ──────────────────────────────────────── -->
+<div class="flex items-center justify-between mb-6">
+    <a href="/seller/create-listing/" class="text-sm text-gray-400 hover:text-brand-400 transition-colors">← Back to listings</a>
+    <div id="status-pill" class="flex items-center gap-2">
+        <!-- JS renders pill here -->
+    </div>
+</div>
+
+<!-- ── Main Layout: Product + Bidding ───────────────────── -->
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+    <!-- Left: Product Info (2 cols) -->
+    <div class="lg:col-span-2">
+        <div class="glass rounded-2xl border border-slate-700/50 overflow-hidden shadow-2xl">
+            {% if auction.product.image %}
+            <div class="aspect-[4/3] overflow-hidden bg-slate-800">
+                <img src="{{ auction.product.image.url }}" alt="{{ auction.product.title }}"
+                     class="w-full h-full object-cover hover:scale-105 transition-transform duration-500" id="product-image">
+            </div>
+            {% else %}
+            <div class="aspect-[4/3] bg-slate-800 flex items-center justify-center">
+                <svg class="w-16 h-16 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"/></svg>
+            </div>
+            {% endif %}
+            <div class="p-5">
+                <h1 class="text-xl font-bold text-white mb-2" id="product-title">{{ auction.product.title }}</h1>
+                <div class="flex flex-wrap gap-2 mb-3">
+                    <span class="px-2.5 py-1 rounded-lg bg-slate-700/60 text-xs font-medium text-gray-300">{{ auction.product.category }}</span>
+                    <span class="px-2.5 py-1 rounded-lg bg-slate-700/60 text-xs font-medium text-gray-300">{{ auction.product.get_condition_display }}</span>
+                </div>
+                {% if auction.product.description %}
+                <div class="text-sm text-gray-400 leading-relaxed line-clamp-4">{{ auction.product.description|truncatewords:60 }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Bidding Panel (3 cols) -->
+    <div class="lg:col-span-3 flex flex-col gap-5">
+
+        <!-- Countdown Timer Card -->
+        <div class="glass rounded-2xl border border-slate-700/50 p-6 shadow-2xl">
+            <div class="text-center">
+                <p class="text-sm font-medium text-gray-400 mb-2" id="timer-label">Time Remaining</p>
+                <div id="countdown" class="text-5xl font-black tracking-wider text-white tabular-nums">
+                    --:--:--
+                </div>
+                <div class="flex justify-center gap-6 mt-3 text-xs text-gray-500">
+                    <span>HOURS</span><span>MINS</span><span>SECS</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Bid Card -->
+        <div class="glass rounded-2xl border border-slate-700/50 p-6 shadow-2xl">
+            <div class="grid grid-cols-2 gap-4 mb-5">
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Current Bid</p>
+                    <p id="current-bid" class="text-3xl font-black text-brand-400">৳{{ auction.current_bid|floatformat:0 }}</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Total Bids</p>
+                    <p id="bid-count" class="text-3xl font-black text-white">{{ bid_count }}</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-3 text-center text-xs">
+                <div class="p-2.5 rounded-lg bg-slate-800/60">
+                    <span class="text-gray-500">Starting</span>
+                    <p class="text-white font-semibold mt-0.5">৳{{ auction.starting_bid|floatformat:0 }}</p>
+                </div>
+                <div class="p-2.5 rounded-lg bg-slate-800/60">
+                    <span class="text-gray-500">Increment</span>
+                    <p class="text-white font-semibold mt-0.5">৳{{ auction.bid_increment|floatformat:0 }}</p>
+                </div>
+                <div class="p-2.5 rounded-lg bg-slate-800/60">
+                    <span class="text-gray-500">Leader</span>
+                    <p class="text-white font-semibold mt-0.5" id="winner-display">{{ auction.winner.email|default:"—" }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bid Input Card (hidden for sellers / non-live auctions) -->
+        <div id="bid-panel" class="glass rounded-2xl border border-slate-700/50 p-6 shadow-2xl">
+            <label class="block text-sm font-semibold text-gray-300 mb-2">Place Your Bid</label>
+            <div class="flex gap-3 mb-3">
+                <div class="relative flex-1">
+                    <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">৳</span>
+                    <input type="number" id="bid-input" step="0.01" min="0"
+                           class="w-full pl-8 pr-4 py-3.5 bg-slate-800/60 border border-slate-600/60 rounded-xl text-white text-lg font-bold focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all">
+                </div>
+                <button id="btn-bid" type="button"
+                        class="px-8 py-3.5 bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-400 hover:to-brand-500 text-white font-bold rounded-xl shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40 transition-all whitespace-nowrap flex items-center gap-2">
+                    🔨 Bid
+                </button>
+            </div>
+            <!-- Quick Increment Buttons -->
+            <div class="flex gap-2">
+                <button class="quick-bid flex-1 py-2 rounded-lg bg-slate-700/60 hover:bg-slate-600/80 text-sm font-semibold text-gray-300 hover:text-white transition-all" data-add="100">+৳100</button>
+                <button class="quick-bid flex-1 py-2 rounded-lg bg-slate-700/60 hover:bg-slate-600/80 text-sm font-semibold text-gray-300 hover:text-white transition-all" data-add="500">+৳500</button>
+                <button class="quick-bid flex-1 py-2 rounded-lg bg-slate-700/60 hover:bg-slate-600/80 text-sm font-semibold text-gray-300 hover:text-white transition-all" data-add="1000">+৳1,000</button>
+                <button class="quick-bid flex-1 py-2 rounded-lg bg-slate-700/60 hover:bg-slate-600/80 text-sm font-semibold text-gray-300 hover:text-white transition-all" data-add="5000">+৳5,000</button>
+            </div>
+            <p class="text-xs text-gray-500 mt-3" id="min-bid-hint">Minimum bid: calculating...</p>
+        </div>
+
+        <!-- Auth Prompt (shown to anonymous users) -->
+        <div id="auth-prompt" class="hidden glass rounded-2xl border border-amber-500/30 p-6 text-center">
+            <p class="text-amber-300 font-semibold mb-2">🔒 Login required to place bids</p>
+            <a href="/admin/login/?next={{ request.path }}" class="inline-block px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl transition-all">Log In</a>
+        </div>
+    </div>
+</div>
+
+<!-- ── Bid History ──────────────────────────────────────── -->
+<div class="mt-8 mb-16">
+    <div class="glass rounded-2xl border border-slate-700/50 p-6 shadow-2xl">
+        <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z"/></svg>
+            Bid History
+            <span id="history-count" class="text-sm font-normal text-gray-500">({{ bid_count }} bids)</span>
+        </h2>
+        <div id="bid-history" class="space-y-2 max-h-80 overflow-y-auto pr-2">
+            {% for bid in bids %}
+            <div class="flex items-center justify-between p-3 rounded-xl bg-slate-800/40 hover:bg-slate-800/60 transition-colors">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-cyan-500 flex items-center justify-center text-xs font-bold text-white">
+                        {{ bid.bidder.email|first|upper }}
+                    </div>
+                    <span class="text-sm text-gray-300">{{ bid.bidder.email }}</span>
+                </div>
+                <div class="text-right">
+                    <span class="text-sm font-bold text-brand-400">৳{{ bid.amount|floatformat:0 }}</span>
+                    <p class="text-xs text-gray-500">{{ bid.created_at|timesince }} ago</p>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-center text-gray-500 py-6">No bids yet — be the first!</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- ── Ended Overlay ────────────────────────────────────── -->
+<div id="ended-overlay" class="hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center">
+    <div class="glass rounded-2xl border border-slate-600/50 p-10 max-w-md text-center shadow-2xl animate-slide-up">
+        <div class="text-5xl mb-4" id="ended-emoji">🏆</div>
+        <h2 class="text-2xl font-bold text-white mb-2" id="ended-title">Auction Ended</h2>
+        <p class="text-gray-400 mb-2" id="ended-detail">—</p>
+        <p class="text-3xl font-black text-brand-400 mb-6" id="ended-amount">—</p>
+        <a href="/seller/create-listing/" class="inline-block px-6 py-3 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl transition-all">Browse More</a>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+(function() {
+    'use strict';
+
+    /* ══════════════════════════════════════════════════════
+       State & Config (server-seeded)
+       ══════════════════════════════════════════════════════ */
+    const CFG = {
+        auctionId: '{{ auction.id }}',
+        serverTime: '{{ server_time }}',
+        endTime: '{{ auction.end_time.isoformat }}',
+        startTime: '{{ auction.start_time.isoformat }}',
+        currentBid: parseFloat('{{ auction.current_bid }}'),
+        bidIncrement: parseFloat('{{ auction.bid_increment }}'),
+        status: '{{ auction.status }}',
+        isSeller: {{ is_seller|yesno:"true,false" }},
+    };
+
+    let clockOffset = new Date(CFG.serverTime).getTime() - Date.now();
+    let endTimeMs = new Date(CFG.endTime).getTime();
+    let currentBid = CFG.currentBid;
+    let bidIncrement = CFG.bidIncrement;
+    let timerInterval = null;
+
+    /* ══════════════════════════════════════════════════════
+       DOM Refs
+       ══════════════════════════════════════════════════════ */
+    const $ = s => document.querySelector(s);
+    const countdown   = $('#countdown');
+    const timerLabel  = $('#timer-label');
+    const statusPill  = $('#status-pill');
+    const currentBidEl = $('#current-bid');
+    const bidCountEl  = $('#bid-count');
+    const winnerEl    = $('#winner-display');
+    const bidInput    = $('#bid-input');
+    const btnBid      = $('#btn-bid');
+    const bidPanel    = $('#bid-panel');
+    const authPrompt  = $('#auth-prompt');
+    const bidHistory  = $('#bid-history');
+    const histCount   = $('#history-count');
+    const minBidHint  = $('#min-bid-hint');
+
+    /* ══════════════════════════════════════════════════════
+       Status Pill Renderer
+       ══════════════════════════════════════════════════════ */
+    function renderStatus(st) {
+        const map = {
+            LIVE: { bg: 'bg-green-500/20 border-green-500/50', dot: 'bg-green-400', text: 'text-green-400', label: '● LIVE', pulse: true },
+            SCHEDULED: { bg: 'bg-blue-500/20 border-blue-500/50', dot: 'bg-blue-400', text: 'text-blue-400', label: '◷ SCHEDULED', pulse: false },
+            ENDED: { bg: 'bg-gray-500/20 border-gray-500/50', dot: 'bg-gray-400', text: 'text-gray-400', label: '■ ENDED', pulse: false },
+            READY_TO_SHIP: { bg: 'bg-amber-500/20 border-amber-500/50', dot: 'bg-amber-400', text: 'text-amber-400', label: '📦 READY TO SHIP', pulse: false },
+            NO_WINNER: { bg: 'bg-red-500/20 border-red-500/50', dot: 'bg-red-400', text: 'text-red-400', label: '✕ NO WINNER', pulse: false },
+        };
+        const s = map[st] || map.ENDED;
+        statusPill.innerHTML = `
+            <span class="px-3.5 py-1.5 rounded-full border ${s.bg} ${s.text} text-sm font-bold flex items-center gap-2">
+                ${s.pulse ? '<span class="relative flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-400"></span></span>' : ''}
+                ${s.label}
+            </span>`;
+        CFG.status = st;
+    }
+
+    /* ══════════════════════════════════════════════════════
+       Countdown Timer (server-synced)
+       ══════════════════════════════════════════════════════ */
+    function startTimer() {
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(updateTimer, 200);
+        updateTimer();
+    }
+
+    function updateTimer() {
+        const serverNow = Date.now() + clockOffset;
+        const remaining = Math.max(0, endTimeMs - serverNow);
+
+        if (remaining <= 0 && CFG.status === 'LIVE') {
+            countdown.textContent = '00:00:00';
+            countdown.classList.add('text-red-400');
+            timerLabel.textContent = 'Auction ending...';
+            return;
+        }
+
+        if (CFG.status !== 'LIVE' && CFG.status !== 'SCHEDULED') {
+            countdown.textContent = '00:00:00';
+            timerLabel.textContent = 'Auction ended';
+            clearInterval(timerInterval);
+            return;
+        }
+
+        const h = Math.floor(remaining / 3600000);
+        const m = Math.floor((remaining % 3600000) / 60000);
+        const s = Math.floor((remaining % 60000) / 1000);
+        countdown.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+
+        // Visual urgency at < 60s
+        if (remaining < 60000) {
+            countdown.classList.add('text-red-400');
+            countdown.classList.remove('text-white');
+        } else if (remaining < 300000) {
+            countdown.classList.add('text-amber-400');
+            countdown.classList.remove('text-white', 'text-red-400');
+        } else {
+            countdown.classList.add('text-white');
+            countdown.classList.remove('text-red-400', 'text-amber-400');
+        }
+    }
+
+    /* ══════════════════════════════════════════════════════
+       UI State
+       ══════════════════════════════════════════════════════ */
+    function updateBidUI() {
+        const minBid = currentBid + bidIncrement;
+        bidInput.value = minBid.toFixed(0);
+        bidInput.min = minBid;
+        minBidHint.textContent = `Minimum bid: ৳${minBid.toLocaleString('en-IN')}`;
+        currentBidEl.textContent = `৳${currentBid.toLocaleString('en-IN')}`;
+    }
+
+    function setUIForStatus(st, isAuth) {
+        renderStatus(st);
+        if (st === 'LIVE' && isAuth && !CFG.isSeller) {
+            bidPanel.classList.remove('hidden');
+            authPrompt.classList.add('hidden');
+        } else if (st === 'LIVE' && !isAuth) {
+            bidPanel.classList.add('hidden');
+            authPrompt.classList.remove('hidden');
+        } else {
+            bidPanel.classList.add('hidden');
+            authPrompt.classList.add('hidden');
+        }
+    }
+
+    /* ══════════════════════════════════════════════════════
+       Bid History
+       ══════════════════════════════════════════════════════ */
+    function prependBid(amount, bidder, timestamp) {
+        const ts = timestamp ? new Date(timestamp) : new Date();
+        const el = document.createElement('div');
+        el.className = 'flex items-center justify-between p-3 rounded-xl bg-brand-500/10 border border-brand-500/20 transition-colors animate-slide-up';
+        el.innerHTML = `
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-cyan-500 flex items-center justify-center text-xs font-bold text-white">${(bidder||'?')[0].toUpperCase()}</div>
+                <span class="text-sm text-gray-300">${bidder}</span>
+            </div>
+            <div class="text-right">
+                <span class="text-sm font-bold text-brand-400">৳${parseFloat(amount).toLocaleString('en-IN')}</span>
+                <p class="text-xs text-gray-500">just now</p>
+            </div>`;
+        bidHistory.prepend(el);
+        // Remove highlight after 3s
+        setTimeout(() => { el.classList.remove('bg-brand-500/10', 'border-brand-500/20'); el.classList.add('bg-slate-800/40'); }, 3000);
+    }
+
+    /* ══════════════════════════════════════════════════════
+       WebSocket Connection
+       ══════════════════════════════════════════════════════ */
+    const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl = `${wsProto}://${location.host}/ws/auctions/${CFG.auctionId}/`;
+    let ws = null;
+    let reconnectDelay = 1000;
+
+    function connectWS() {
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+            reconnectDelay = 1000;
+            console.log('[WS] Connected');
+        };
+
+        ws.onmessage = (e) => {
+            const msg = JSON.parse(e.data);
+            handleMessage(msg);
+        };
+
+        ws.onclose = (e) => {
+            console.log('[WS] Disconnected, reconnecting in', reconnectDelay, 'ms');
+            setTimeout(connectWS, reconnectDelay);
+            reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+        };
+
+        ws.onerror = (e) => console.error('[WS] Error', e);
+    }
+
+    function handleMessage(msg) {
+        switch (msg.type) {
+
+            case 'connection_established':
+                // Sync clock
+                clockOffset = new Date(msg.server_time).getTime() - Date.now();
+                endTimeMs = new Date(msg.end_time).getTime();
+                currentBid = parseFloat(msg.current_bid);
+                bidIncrement = parseFloat(msg.bid_increment);
+
+                bidCountEl.textContent = msg.bid_count;
+                histCount.textContent = `(${msg.bid_count} bids)`;
+                winnerEl.textContent = msg.winner_display || '—';
+                CFG.isSeller = msg.is_seller;
+
+                setUIForStatus(msg.status, msg.is_authenticated);
+                updateBidUI();
+                startTimer();
+
+                // Rebuild bid history from server state
+                if (msg.recent_bids && msg.recent_bids.length) {
+                    bidHistory.innerHTML = '';
+                    msg.recent_bids.forEach(b => prependBid(b.amount, b.bidder_display, b.created_at));
+                }
+                break;
+
+            case 'new_highest_bid':
+                clockOffset = new Date(msg.server_time).getTime() - Date.now();
+                endTimeMs = new Date(msg.end_time).getTime();
+                currentBid = parseFloat(msg.amount);
+                currentBidEl.textContent = `৳${currentBid.toLocaleString('en-IN')}`;
+                bidCountEl.textContent = msg.bid_count;
+                histCount.textContent = `(${msg.bid_count} bids)`;
+                winnerEl.textContent = msg.bidder_display;
+                updateBidUI();
+
+                prependBid(msg.amount, msg.bidder_display);
+
+                if (msg.anti_snipe_extended) {
+                    const sb = $('#snipe-banner');
+                    sb.classList.remove('hidden');
+                    setTimeout(() => sb.classList.add('hidden'), 4000);
+                }
+                break;
+
+            case 'bid_accepted':
+                showToast(`Bid of ৳${parseFloat(msg.amount).toLocaleString('en-IN')} accepted!`, 'success');
+                btnBid.disabled = false;
+                btnBid.innerHTML = '🔨 Bid';
+                break;
+
+            case 'bid_rejected':
+                showToast(msg.error, 'error');
+                btnBid.disabled = false;
+                btnBid.innerHTML = '🔨 Bid';
+                break;
+
+            case 'outbid':
+                const ob = $('#outbid-banner');
+                $('#outbid-text').textContent = `You've been outbid on ${msg.product_title}! New bid: ৳${parseFloat(msg.new_amount).toLocaleString('en-IN')}`;
+                ob.classList.remove('hidden');
+                setTimeout(() => ob.classList.add('hidden'), 6000);
+                break;
+
+            case 'auction_started':
+                clockOffset = new Date(msg.server_time).getTime() - Date.now();
+                endTimeMs = new Date(msg.end_time).getTime();
+                currentBid = parseFloat(msg.starting_bid);
+                currentBidEl.textContent = `৳${currentBid.toLocaleString('en-IN')}`;
+                setUIForStatus('LIVE', true);
+                updateBidUI();
+                startTimer();
+                showToast('Auction is now LIVE!', 'success');
+                break;
+
+            case 'auction_ended':
+                clearInterval(timerInterval);
+                countdown.textContent = '00:00:00';
+                setUIForStatus(msg.final_status, false);
+
+                const overlay = $('#ended-overlay');
+                if (msg.final_status === 'NO_WINNER') {
+                    $('#ended-emoji').textContent = '😔';
+                    $('#ended-title').textContent = 'No Winner';
+                    $('#ended-detail').textContent = 'Reserve price was not met or no bids were placed.';
+                } else {
+                    $('#ended-emoji').textContent = '🏆';
+                    $('#ended-title').textContent = 'Auction Ended!';
+                    $('#ended-detail').textContent = `Winner: ${msg.winner_display || '—'}`;
+                }
+                $('#ended-amount').textContent = `৳${parseFloat(msg.final_amount).toLocaleString('en-IN')}`;
+                overlay.classList.remove('hidden');
+                break;
+
+            case 'pong':
+                clockOffset = new Date(msg.server_time).getTime() - Date.now();
+                break;
+        }
+    }
+
+    /* ══════════════════════════════════════════════════════
+       Bid Submission
+       ══════════════════════════════════════════════════════ */
+    btnBid.addEventListener('click', () => {
+        const amount = parseFloat(bidInput.value);
+        if (isNaN(amount) || amount <= 0) { showToast('Enter a valid bid amount.', 'error'); return; }
+        if (!ws || ws.readyState !== WebSocket.OPEN) { showToast('Connection lost. Reconnecting...', 'error'); return; }
+
+        btnBid.disabled = true;
+        btnBid.innerHTML = '<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>';
+
+        ws.send(JSON.stringify({ type: 'place_bid', amount: amount }));
+    });
+
+    // Quick increment buttons
+    document.querySelectorAll('.quick-bid').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const add = parseInt(btn.dataset.add);
+            bidInput.value = (parseFloat(bidInput.value) || currentBid + bidIncrement) + add;
+        });
+    });
+
+    // Enter key to bid
+    bidInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') btnBid.click();
+    });
+
+    /* ══════════════════════════════════════════════════════
+       Periodic Clock Sync (every 30s)
+       ══════════════════════════════════════════════════════ */
+    setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'ping' }));
+        }
+    }, 30000);
+
+    /* ══════════════════════════════════════════════════════
+       Init
+       ══════════════════════════════════════════════════════ */
+    renderStatus(CFG.status);
+    updateBidUI();
+    startTimer();
+    connectWS();
+
+})();
+</script>
+{% endblock %}

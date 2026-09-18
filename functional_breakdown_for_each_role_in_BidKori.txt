@@ -1,0 +1,114 @@
+Here is the complete functional breakdown for each role in BidKori, mapped directly to its underlying coding components and architectural layers.
+1. Seller Functionalities
+Registration & Profile Onboarding
+Individual vs. Business Seller Selection: Sellers can register as individual casual sellers (pay-as-you-sell) or business sellers. Business accounts require trade license numbers, shop names, and verification documents.
+Coding Components: Django User and SellerProfile models, DRF RegisterSerializer, permissions.IsAuthenticated, PostgreSQL.
+Subscription Management (GMV Tier): High-volume sellers can subscribe to a fixed monthly plan that provides a predefined Gross Merchandise Value (GMV) threshold instead of paying individual transaction fees.
+Coding Components: DRF API endpoints (/api/subscription/), Stripe/SSLCommerz payment webhook handler, PostgreSQL Subscription model, Celery periodic tasks for monthly allowance reset.
+Product & Auction Creation
+Manual Listing Input: Inputting title, starting price, reserve price, bid increment, auction start/end time, and item condition.
+Coding Components: Django form/DRF AuctionCreateSerializer, PostgreSQL Product & Auction models, AWS S3 / local media storage for product image uploads.
+One-Click AI Description Generator: Generating a structured description with specs and highlights automatically from the product title and uploaded image.
+Coding Components: Frontend Fetch API, Celery background worker, Google Gemini / OpenAI Python SDK, Redis (task broker).
+Live Auction Monitoring & Management
+Real-Time Auction Dashboard: Watching incoming bids live, remaining countdown timer, and bidder IDs in real time.
+Coding Components: Django Channels (WebsocketConsumer), Redis Channel Layer for pub/sub broadcasts, Frontend WebSocket client (vanilla JS/Tailwind).
+Live Notifications: Instant alerts whenever a new bid is placed or when the auction timer is expiring.
+Coding Components: Django Channels private user group alerts, Redis cache.
+Post-Auction & Order Fulfillment
+Contact & Shipping Unlock: Once an auction ends, the winning buyer's sensitive shipping details remain locked. The seller triggers an unlock by paying the platform fee (3–5%) or applying their monthly GMV allowance.
+Coding Components: DRF view (UnlockBuyerInfoView), PostgreSQL transaction block, GMV calculation logic.
+Seller Analytics: Visualizing total sales, successful vs. failed auction rates, and remaining GMV quota.
+Coding Components: DRF aggregation queries (Sum('final_amount'), Count('id')), Chart.js / dashboard UI.
+2. Buyer Functionalities
+Discovery & Search
+Catalog Exploration & Filtering: Searching auctions by category, item condition, current highest bid, ending soonest, or newly listed.
+Coding Components: DRF ListAPIView, Django django-filter / PostgreSQL full-text search indexes (TrigramSimilarity).
+Watchlist & Saved Items: Adding scheduled or live auctions to a personal watchlist for quick access.
+Coding Components: PostgreSQL Watchlist table (user_id, auction_id), DRF viewset endpoints.
+Real-Time Live Bidding
+Live Room Participation: Connecting to an active auction room with synchronized countdown clocks and live bid logs.
+Coding Components: Django Channels WebSocket connection (/ws/auctions/<auction_id>/), Tailwind UI live state renderer.
+Placing Bids: Submitting a bid that must be higher than the current bid plus the minimum increment.
+Coding Components: WebSocket receive_json handler, Redis atomic distributed locks (SETNX) to prevent race conditions, PostgreSQL write via Celery.
+Anti-Sniping Dynamic Timer Extension: If a bid is submitted in the final 30 seconds of an auction, the timer automatically extends to keep the auction fair.
+Coding Components: Redis in-memory key expiration updates, Django Channels broadcast to room.
+Notifications & Winning
+Real-Time Outbid Alerts: Instant push notification or UI toast when another bidder enters a higher bid.
+Coding Components: Django Channels targeted user channel send (channel_layer.group_send), browser notification API.
+Winner Notification & Post-Auction Submission: Notification of winning the item and submitting delivery address/contact details for seller fulfillment.
+Coding Components: Post-auction state trigger in Celery, DRF BuyerDeliveryInfoView.
+AI Site Assistant (Chatbot)
+Platform & Rules Guidance: An embedded chatbot available 24/7 explaining bidding increments, payment rules, categories, and account verification.
+Coding Components: Gemini API / OpenAI API, Celery worker, RAG-grounded markdown knowledge base, WebSocket/REST chat widget.
+
+
+
+3. Admin Functionalities
+Platform Governance & Moderation
+User Management: Viewing, searching, suspending, banning, and verifying individual and business sellers.
+Coding Components: Django Admin customized view / custom DRF Admin endpoints, permissions.IsAdminUser, PostgreSQL user status flag updates.
+Listing Moderation: Reviewing flagged auctions, manual approval/rejection of suspicious items, and screening counterfeit or illicit products.
+Coding Components: DRF /admin/moderation/ endpoints, Celery asynchronous text/image filter pipelines.
+Auction Override Controls: Emergency power to cancel, suspend, or edit live or scheduled auctions.
+Coding Components: DRF view modifying PostgreSQL auction state, Django Channels event broadcasting AUCTION_SUSPENDED to all active sockets.
+Fraud & Shill-Bidding Prevention
+Anti-Shill Bidding Engine: Flagging sellers who place bids on their own items using alternate accounts or identical IP addresses/device signatures.
+Coding Components: Django middleware capturing request.META['REMOTE_ADDR'] & User-Agent, Celery periodic rule-engine task comparing bidder and seller identity patterns.
+Dispute Handling: Resolving cases where the buyer does not pay, the seller does not ship, or items arrive damaged/misrepresented.
+Coding Components: PostgreSQL Dispute model, Admin ticket dashboard, refund/penalty trigger views.
+Business Analytics & Financial Tracking
+Marketplace Revenue Tracking: Real-time metrics on GMV, total transaction fee earnings, and subscription revenue.
+Coding Components: PostgreSQL aggregate SQL views, Celery Beat scheduled daily analytical calculations.
+System Health Monitoring: Tracking active WebSocket connections, Redis memory usage, and background worker queue depth.
+Coding Components: Flower (for Celery queue monitoring), Redis CLI / Prometheus metrics exporter.
+
+
+
+
+
+
+
+
+Summary Matrix
+
+Functionality Category
+Primary User
+Real-Time Layer (Channels/Redis)
+Asynchronous Layer (Celery/AI)
+Relational Database (PostgreSQL)
+User & Profile Management
+Seller, Buyer, Admin
+—
+—
+User, SellerProfile
+Listing Creation & AI Description
+Seller
+Optional (Status Polling)
+Gemini/OpenAI API Worker
+Product, Auction
+Live Bidding & Timer Sync
+Buyer, Seller
+Channels Pub/Sub + Redis Lock
+—
+Bid (Batch or Async Insert)
+Outbid & Event Notifications
+Buyer, Seller
+User-targeted WebSocket Groups
+Notification Dispatcher
+Notification
+Post-Auction Fee Unlock
+Seller, Admin
+—
+Allowance Checking
+Transaction, Subscription
+Shill Detection & Fraud Rules
+Admin
+—
+Behavioral Pattern Engine
+AuditLog, Dispute
+Site AI Support Bot
+Buyer, Seller
+Chat Socket / REST
+RAG Pipeline + LLM Call
+ChatMessage History

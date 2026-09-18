@@ -1,0 +1,544 @@
+{% extends "base.html" %}
+{% block title %}Create Listing{% endblock %}
+{% block meta_description %}List your product on BidKori with AI-powered descriptions.{% endblock %}
+
+{% block content %}
+<!-- ── Step Indicator ───────────────────────────────────────── -->
+<div class="mb-10">
+    <div class="flex items-center justify-between max-w-2xl mx-auto">
+        <div id="step-ind-1" class="flex flex-col items-center gap-1.5">
+            <div class="w-10 h-10 rounded-full bg-brand-500 flex items-center justify-center text-white font-bold shadow-lg shadow-brand-500/30 transition-all duration-500">1</div>
+            <span class="text-xs font-semibold text-brand-400">Product Info</span>
+        </div>
+        <div class="flex-1 h-0.5 bg-slate-700 mx-2 rounded-full overflow-hidden"><div id="prog-1" class="h-full bg-brand-500 w-0 transition-all duration-700"></div></div>
+        <div id="step-ind-2" class="flex flex-col items-center gap-1.5">
+            <div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-gray-400 font-bold transition-all duration-500">2</div>
+            <span class="text-xs font-medium text-gray-500">AI Description</span>
+        </div>
+        <div class="flex-1 h-0.5 bg-slate-700 mx-2 rounded-full overflow-hidden"><div id="prog-2" class="h-full bg-brand-500 w-0 transition-all duration-700"></div></div>
+        <div id="step-ind-3" class="flex flex-col items-center gap-1.5">
+            <div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-gray-400 font-bold transition-all duration-500">3</div>
+            <span class="text-xs font-medium text-gray-500">Publish</span>
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- STEP 1 — Product Info                                       -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<section id="step-1" class="animate-fade-in">
+    <div class="glass rounded-2xl border border-slate-700/50 p-8 shadow-2xl">
+        <h1 class="text-2xl font-bold text-white mb-1">Create New Listing</h1>
+        <p class="text-gray-400 mb-8">Upload your product image and fill in the details.</p>
+
+        <form id="product-form" class="space-y-8">
+            {% csrf_token %}
+
+            <!-- Two-column: Image + Fields -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Image Upload Zone -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-300 mb-2">Product Image</label>
+                    <div id="drop-zone"
+                         class="relative w-full aspect-square max-h-[360px] rounded-2xl border-2 border-dashed border-slate-600 bg-slate-800/40 flex flex-col items-center justify-center cursor-pointer hover:border-brand-500/60 hover:bg-slate-800/70 transition-all duration-300 overflow-hidden group">
+                        <input type="file" id="image-input" name="image" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                        <!-- Placeholder -->
+                        <div id="upload-placeholder" class="flex flex-col items-center gap-3 pointer-events-none">
+                            <div class="w-16 h-16 rounded-2xl bg-slate-700/60 flex items-center justify-center group-hover:bg-brand-500/20 transition-colors">
+                                <svg class="w-8 h-8 text-gray-400 group-hover:text-brand-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"/>
+                                </svg>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-sm font-medium text-gray-300">Drop image here or <span class="text-brand-400">browse</span></p>
+                                <p class="text-xs text-gray-500 mt-1">JPG, PNG, WebP — max 10 MB</p>
+                            </div>
+                        </div>
+                        <!-- Preview -->
+                        <img id="image-preview" src="" alt="Preview" class="hidden absolute inset-0 w-full h-full object-cover rounded-2xl">
+                    </div>
+                </div>
+
+                <!-- Product Fields -->
+                <div class="flex flex-col gap-5">
+                    <!-- Title -->
+                    <div>
+                        <label for="title" class="block text-sm font-semibold text-gray-300 mb-1.5">Product Title</label>
+                        <input type="text" id="title" name="title" required placeholder="e.g. iPhone 14 Pro Max 256GB Deep Purple"
+                               class="w-full px-4 py-3 bg-slate-800/60 border border-slate-600/60 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all">
+                    </div>
+
+                    <!-- Category -->
+                    <div>
+                        <label for="category" class="block text-sm font-semibold text-gray-300 mb-1.5">Category</label>
+                        <select id="category" name="category" required
+                                class="w-full px-4 py-3 bg-slate-800/60 border border-slate-600/60 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all appearance-none">
+                            <option value="" disabled selected class="text-gray-500">Select a category</option>
+                            <option value="Mobile Phones">📱 Mobile Phones</option>
+                            <option value="Laptops & Computers">💻 Laptops & Computers</option>
+                            <option value="Electronics">🔌 Electronics</option>
+                            <option value="Cameras & Photography">📷 Cameras & Photography</option>
+                            <option value="Gaming">🎮 Gaming</option>
+                            <option value="Fashion & Accessories">👗 Fashion & Accessories</option>
+                            <option value="Home & Garden">🏠 Home & Garden</option>
+                            <option value="Books & Media">📚 Books & Media</option>
+                            <option value="Sports & Outdoors">⚽ Sports & Outdoors</option>
+                            <option value="Vehicles & Parts">🚗 Vehicles & Parts</option>
+                            <option value="Other">📦 Other</option>
+                        </select>
+                    </div>
+
+                    <!-- Condition Cards -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-300 mb-2">Condition</label>
+                        <div class="grid grid-cols-3 gap-3">
+                            <label class="condition-card cursor-pointer">
+                                <input type="radio" name="condition" value="USED" class="sr-only peer" required>
+                                <div class="px-3 py-3 rounded-xl border-2 border-slate-600/60 bg-slate-800/40 text-center peer-checked:border-brand-500 peer-checked:bg-brand-500/10 hover:border-slate-500 transition-all">
+                                    <div class="text-xl mb-1">🔧</div>
+                                    <div class="text-sm font-semibold text-gray-200">Used</div>
+                                </div>
+                            </label>
+                            <label class="condition-card cursor-pointer">
+                                <input type="radio" name="condition" value="REFURBISHED" class="sr-only peer">
+                                <div class="px-3 py-3 rounded-xl border-2 border-slate-600/60 bg-slate-800/40 text-center peer-checked:border-brand-500 peer-checked:bg-brand-500/10 hover:border-slate-500 transition-all">
+                                    <div class="text-xl mb-1">♻️</div>
+                                    <div class="text-sm font-semibold text-gray-200">Refurbished</div>
+                                </div>
+                            </label>
+                            <label class="condition-card cursor-pointer">
+                                <input type="radio" name="condition" value="LIKE_NEW" class="sr-only peer">
+                                <div class="px-3 py-3 rounded-xl border-2 border-slate-600/60 bg-slate-800/40 text-center peer-checked:border-brand-500 peer-checked:bg-brand-500/10 hover:border-slate-500 transition-all">
+                                    <div class="text-xl mb-1">✨</div>
+                                    <div class="text-sm font-semibold text-gray-200">Like New</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Extra Specs (optional) -->
+                    <div>
+                        <label for="extra-specs" class="block text-sm font-semibold text-gray-300 mb-1.5">
+                            Additional Specs <span class="text-gray-500 font-normal">(optional — helps AI)</span>
+                        </label>
+                        <input type="text" id="extra-specs" placeholder="e.g. 6GB RAM, battery health 92%, comes with charger"
+                               class="w-full px-4 py-3 bg-slate-800/60 border border-slate-600/60 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit -->
+            <button type="submit" id="btn-create"
+                    class="w-full py-3.5 bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-400 hover:to-brand-500 text-white font-semibold rounded-xl shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40 transition-all duration-300 flex items-center justify-center gap-2">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+                </svg>
+                Create Listing
+            </button>
+        </form>
+    </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- STEP 2 — AI Description                                     -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<section id="step-2" class="hidden mt-6">
+    <div class="glass rounded-2xl border border-slate-700/50 p-8 shadow-2xl animate-slide-up">
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h2 class="text-xl font-bold text-white">AI Product Description</h2>
+                <p class="text-gray-400 text-sm mt-1">Let Gemini analyze your image and generate a professional listing description.</p>
+            </div>
+            <button type="button" id="btn-generate"
+                    class="px-6 py-3 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-400 hover:to-purple-500 text-white font-semibold rounded-xl shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 transition-all duration-300 flex items-center gap-2 whitespace-nowrap">
+                <span id="gen-icon">✨</span>
+                <span id="gen-text">Auto-Generate with AI</span>
+            </button>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="ai-loading" class="hidden mb-6">
+            <div class="flex items-center gap-4 p-5 rounded-xl bg-violet-500/10 border border-violet-500/30">
+                <div class="w-8 h-8 border-[3px] border-violet-400 border-t-transparent rounded-full animate-spin"></div>
+                <div>
+                    <p class="text-sm font-semibold text-violet-300">Gemini is analyzing your product...</p>
+                    <p class="text-xs text-violet-400/70 mt-0.5" id="ai-status-text">Processing image and generating description</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Description Textarea -->
+        <div>
+            <label for="description" class="block text-sm font-semibold text-gray-300 mb-2">
+                Description <span class="text-gray-500 font-normal">— edit freely before publishing</span>
+            </label>
+            <textarea id="description" rows="14" placeholder="AI-generated description will appear here, or write your own..."
+                      class="w-full px-4 py-3.5 bg-slate-800/60 border border-slate-600/60 rounded-xl text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all resize-y leading-relaxed"></textarea>
+        </div>
+
+        <button type="button" id="btn-save-desc"
+                class="mt-5 w-full py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+            Save Description & Continue
+        </button>
+    </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- STEP 3 — Auction Settings & Publish                         -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<section id="step-3" class="hidden mt-6 mb-16">
+    <div class="glass rounded-2xl border border-slate-700/50 p-8 shadow-2xl animate-slide-up">
+        <h2 class="text-xl font-bold text-white mb-1">Schedule Your Auction</h2>
+        <p class="text-gray-400 text-sm mb-8">Set your pricing and timing, then go live.</p>
+
+        <form id="auction-form" class="space-y-6">
+            {% csrf_token %}
+
+            <!-- Pricing Row -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div>
+                    <label for="starting_bid" class="block text-sm font-semibold text-gray-300 mb-1.5">Starting Bid (৳)</label>
+                    <input type="number" id="starting_bid" name="starting_bid" step="0.01" min="1" required placeholder="500.00"
+                           class="w-full px-4 py-3 bg-slate-800/60 border border-slate-600/60 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all">
+                </div>
+                <div>
+                    <label for="bid_increment" class="block text-sm font-semibold text-gray-300 mb-1.5">Bid Increment (৳)</label>
+                    <input type="number" id="bid_increment" name="bid_increment" step="0.01" min="1" required placeholder="50.00"
+                           class="w-full px-4 py-3 bg-slate-800/60 border border-slate-600/60 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all">
+                </div>
+                <div>
+                    <label for="reserve_price" class="block text-sm font-semibold text-gray-300 mb-1.5">
+                        Reserve Price (৳) <span class="text-gray-500 font-normal text-xs">optional</span>
+                    </label>
+                    <input type="number" id="reserve_price" name="reserve_price" step="0.01" min="0" placeholder="—"
+                           class="w-full px-4 py-3 bg-slate-800/60 border border-slate-600/60 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all">
+                </div>
+            </div>
+
+            <!-- Schedule Row -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                    <label for="start_time" class="block text-sm font-semibold text-gray-300 mb-1.5">Start Time</label>
+                    <input type="datetime-local" id="start_time" name="start_time" required
+                           class="w-full px-4 py-3 bg-slate-800/60 border border-slate-600/60 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all [color-scheme:dark]">
+                </div>
+                <div>
+                    <label for="end_time" class="block text-sm font-semibold text-gray-300 mb-1.5">End Time</label>
+                    <input type="datetime-local" id="end_time" name="end_time" required
+                           class="w-full px-4 py-3 bg-slate-800/60 border border-slate-600/60 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all [color-scheme:dark]">
+                </div>
+            </div>
+
+            <!-- Info Card -->
+            <div class="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                <span class="text-amber-400 text-lg">⚡</span>
+                <p class="text-sm text-amber-200/90 leading-relaxed">
+                    If the <strong>Start Time</strong> is set to now or in the past, the auction will go <strong>LIVE</strong> immediately.
+                    Otherwise it will be <strong>SCHEDULED</strong> and activated automatically.
+                </p>
+            </div>
+
+            <!-- Publish Button -->
+            <button type="submit" id="btn-publish"
+                    class="w-full py-4 bg-gradient-to-r from-brand-500 to-emerald-600 hover:from-brand-400 hover:to-emerald-500 text-white text-lg font-bold rounded-xl shadow-lg shadow-brand-500/30 hover:shadow-brand-500/50 transition-all duration-300 flex items-center justify-center gap-2">
+                🚀 Publish Auction
+            </button>
+        </form>
+    </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- SUCCESS State                                                -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<section id="step-done" class="hidden mt-6 mb-16">
+    <div class="glass rounded-2xl border border-brand-500/30 p-10 shadow-2xl animate-slide-up text-center">
+        <div class="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shadow-xl shadow-brand-500/30 mb-6">
+            <svg class="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+        </div>
+        <h2 class="text-2xl font-bold text-white mb-2">Auction Published!</h2>
+        <p class="text-gray-400 mb-1" id="publish-status-text">Your auction is now live.</p>
+        <p class="text-sm text-gray-500 mb-8" id="publish-auction-id"></p>
+        <div class="flex justify-center gap-4">
+            <a href="/seller/create-listing/" class="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl transition-all">
+                + Create Another
+            </a>
+            <a href="/admin/auctions/auction/" class="px-6 py-3 bg-brand-600 hover:bg-brand-500 text-white font-semibold rounded-xl transition-all">
+                View in Admin
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+(function() {
+    'use strict';
+
+    /* ── State ──────────────────────────────────────────── */
+    const state = { productId: null, taskId: null };
+
+    /* ── DOM Refs ───────────────────────────────────────── */
+    const $ = (s) => document.querySelector(s);
+    const steps   = { 1: $('#step-1'), 2: $('#step-2'), 3: $('#step-3'), done: $('#step-done') };
+    const progs   = { 1: $('#prog-1'), 2: $('#prog-2') };
+    const stepInd = { 1: $('#step-ind-1'), 2: $('#step-ind-2'), 3: $('#step-ind-3') };
+
+    /* ── Step Navigation ────────────────────────────────── */
+    function goToStep(n) {
+        // Hide all sections
+        Object.values(steps).forEach(el => el.classList.add('hidden'));
+        // Show target
+        const key = n === 4 ? 'done' : n;
+        if (steps[key]) { steps[key].classList.remove('hidden'); }
+
+        // Update indicators
+        for (let i = 1; i <= 3; i++) {
+            const circle = stepInd[i].querySelector('div');
+            const label  = stepInd[i].querySelector('span');
+            if (i < n) {
+                circle.className = 'w-10 h-10 rounded-full bg-brand-500 flex items-center justify-center text-white font-bold shadow-lg shadow-brand-500/30 transition-all duration-500';
+                circle.innerHTML = '✓';
+                label.className = 'text-xs font-semibold text-brand-400';
+            } else if (i === n && n <= 3) {
+                circle.className = 'w-10 h-10 rounded-full bg-brand-500 flex items-center justify-center text-white font-bold shadow-lg shadow-brand-500/30 transition-all duration-500';
+                circle.textContent = i;
+                label.className = 'text-xs font-semibold text-brand-400';
+            } else {
+                circle.className = 'w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-gray-400 font-bold transition-all duration-500';
+                circle.textContent = i;
+                label.className = 'text-xs font-medium text-gray-500';
+            }
+        }
+        // Progress bars
+        if (progs[1]) progs[1].style.width = n >= 2 ? '100%' : '0';
+        if (progs[2]) progs[2].style.width = n >= 3 ? '100%' : '0';
+    }
+
+    /* ── Image Preview ──────────────────────────────────── */
+    const imgInput   = $('#image-input');
+    const imgPreview = $('#image-preview');
+    const placeholder = $('#upload-placeholder');
+    const dropZone   = $('#drop-zone');
+
+    imgInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) showPreview(file);
+    });
+
+    ['dragenter','dragover'].forEach(evt => {
+        dropZone.addEventListener(evt, (e) => { e.preventDefault(); dropZone.classList.add('border-brand-500','bg-brand-500/10'); });
+    });
+    ['dragleave','drop'].forEach(evt => {
+        dropZone.addEventListener(evt, (e) => { e.preventDefault(); dropZone.classList.remove('border-brand-500','bg-brand-500/10'); });
+    });
+    dropZone.addEventListener('drop', (e) => {
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) {
+            const dt = new DataTransfer(); dt.items.add(file); imgInput.files = dt.files;
+            showPreview(file);
+        }
+    });
+
+    function showPreview(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            imgPreview.src = e.target.result;
+            imgPreview.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+        };
+        reader.readAsDataURL(file);
+    }
+
+    /* ── Step 1: Create Product ─────────────────────────── */
+    $('#product-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = $('#btn-create');
+        btn.disabled = true; btn.innerHTML = '<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Creating...';
+
+        const fd = new FormData();
+        fd.append('title', $('#title').value);
+        fd.append('category', $('#category').value);
+        fd.append('condition', document.querySelector('input[name="condition"]:checked')?.value || '');
+        if (imgInput.files[0]) fd.append('image', imgInput.files[0]);
+
+        try {
+            const resp = await fetch('/api/products/create/', {
+                method: 'POST', body: fd,
+                headers: { 'X-CSRFToken': CSRF_TOKEN },
+            });
+            const data = await resp.json();
+            if (!resp.ok) {
+                const msg = Object.values(data).flat().join(', ');
+                throw new Error(msg || 'Validation failed');
+            }
+            state.productId = data.id;
+            showToast('Product created successfully!', 'success');
+            goToStep(2);
+        } catch (err) {
+            showToast(err.message || 'Failed to create product.', 'error');
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg> Create Listing';
+        }
+    });
+
+    /* ── Step 2: AI Generation ──────────────────────────── */
+    $('#btn-generate').addEventListener('click', async () => {
+        const btn      = $('#btn-generate');
+        const loading  = $('#ai-loading');
+        const statusEl = $('#ai-status-text');
+
+        btn.disabled = true;
+        $('#gen-icon').innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>';
+        $('#gen-text').textContent = 'Generating...';
+        loading.classList.remove('hidden');
+
+        try {
+            const body = {};
+            const specs = $('#extra-specs').value.trim();
+            if (specs) body.extra_specs = specs;
+
+            const resp = await fetch(`/api/products/${state.productId}/generate-description/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                body: JSON.stringify(body),
+            });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.detail || 'Failed to start AI task.');
+
+            state.taskId = data.task_id;
+            statusEl.textContent = 'Task dispatched — polling for results...';
+            pollTaskStatus();
+        } catch (err) {
+            showToast(err.message, 'error');
+            resetAiButton();
+        }
+    });
+
+    function pollTaskStatus() {
+        const statusEl = $('#ai-status-text');
+        let attempts = 0;
+        const maxAttempts = 60; // 2 minutes at 2s intervals
+
+        const interval = setInterval(async () => {
+            attempts++;
+            try {
+                const resp = await fetch(`/api/tasks/${state.taskId}/status/`, {
+                    headers: { 'X-CSRFToken': CSRF_TOKEN },
+                });
+                const data = await resp.json();
+                statusEl.textContent = `Status: ${data.status} (attempt ${attempts}/${maxAttempts})`;
+
+                if (data.status === 'SUCCESS') {
+                    clearInterval(interval);
+                    const desc = data.result?.description || '';
+                    $('#description').value = desc;
+                    $('#description').style.opacity = '0';
+                    requestAnimationFrame(() => {
+                        $('#description').style.transition = 'opacity 0.8s ease';
+                        $('#description').style.opacity = '1';
+                    });
+                    $('#ai-loading').classList.add('hidden');
+                    resetAiButton();
+                    showToast('AI description generated!', 'success');
+                } else if (data.status === 'FAILURE') {
+                    clearInterval(interval);
+                    $('#ai-loading').classList.add('hidden');
+                    resetAiButton();
+                    showToast('AI generation failed. You can try again or write manually.', 'error');
+                } else if (attempts >= maxAttempts) {
+                    clearInterval(interval);
+                    $('#ai-loading').classList.add('hidden');
+                    resetAiButton();
+                    showToast('AI generation timed out. Try again or write manually.', 'error');
+                }
+            } catch (err) {
+                clearInterval(interval);
+                $('#ai-loading').classList.add('hidden');
+                resetAiButton();
+                showToast('Error polling task status.', 'error');
+            }
+        }, 2000);
+    }
+
+    function resetAiButton() {
+        const btn = $('#btn-generate');
+        btn.disabled = false;
+        $('#gen-icon').textContent = '✨';
+        $('#gen-text').textContent = 'Auto-Generate with AI';
+    }
+
+    /* ── Step 2→3: Save Description ─────────────────────── */
+    $('#btn-save-desc').addEventListener('click', async () => {
+        const desc = $('#description').value.trim();
+        if (!desc) { showToast('Please write or generate a description first.', 'error'); return; }
+
+        const btn = $('#btn-save-desc');
+        btn.disabled = true; btn.innerHTML = '<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Saving...';
+
+        try {
+            const resp = await fetch(`/api/products/${state.productId}/`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                body: JSON.stringify({ description: desc }),
+            });
+            if (!resp.ok) { const d = await resp.json(); throw new Error(d.detail || 'Save failed'); }
+            showToast('Description saved!', 'success');
+            goToStep(3);
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Save Description & Continue';
+        }
+    });
+
+    /* ── Step 3: Publish Auction ─────────────────────────── */
+    $('#auction-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = $('#btn-publish');
+        btn.disabled = true; btn.innerHTML = '<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Publishing...';
+
+        const payload = {
+            starting_bid: parseFloat($('#starting_bid').value),
+            bid_increment: parseFloat($('#bid_increment').value),
+            start_time: new Date($('#start_time').value).toISOString(),
+            end_time: new Date($('#end_time').value).toISOString(),
+        };
+        const rp = $('#reserve_price').value;
+        if (rp) payload.reserve_price = parseFloat(rp);
+
+        try {
+            const resp = await fetch(`/api/products/${state.productId}/publish-auction/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                body: JSON.stringify(payload),
+            });
+            const data = await resp.json();
+            if (!resp.ok) {
+                const msg = typeof data === 'object' ? Object.values(data).flat().join(', ') : data.detail || 'Publish failed';
+                throw new Error(msg);
+            }
+
+            $('#publish-status-text').textContent = `Your auction is now ${data.status === 'LIVE' ? '🟢 LIVE' : '🕐 SCHEDULED'}.`;
+            $('#publish-auction-id').textContent = `Auction ID: ${data.auction_id}`;
+            showToast(data.message, 'success');
+            goToStep(4);
+        } catch (err) {
+            showToast(err.message, 'error');
+            btn.disabled = false;
+            btn.innerHTML = '🚀 Publish Auction';
+        }
+    });
+
+    /* ── Init ────────────────────────────────────────────── */
+    goToStep(1);
+
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,26 @@
+# ── Core Framework ──
+django>=4.2,<5.1
+djangorestframework>=3.14,<4.0
+djangorestframework-simplejwt>=5.3,<6.0
+
+# ── ASGI & Real-Time ──
+daphne>=4.0,<5.0
+channels>=4.0,<5.0
+channels-redis>=4.1,<5.0
+
+# ── Task Queue ──
+celery>=5.3,<6.0
+redis>=5.0,<6.0
+
+# ── Database ──
+psycopg2-binary>=2.9,<3.0
+
+# ── Media & Images ──
+pillow>=10.0,<11.0
+
+# ── AI Integration (Phase 2) ──
+google-genai>=1.0
+
+# ── Utilities ──
+python-dotenv>=1.0,<2.0
+django-cors-headers>=4.3,<5.0

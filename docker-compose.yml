@@ -1,0 +1,92 @@
+services:
+  # ── Django ASGI via Daphne ──────────────────────────────
+  web:
+    build: .
+    command: daphne -b 0.0.0.0 -p 8000 bidkori_core.asgi:application
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - RUN_MIGRATIONS=true
+    volumes:
+      - .:/app
+      - static_data:/app/staticfiles
+      - media_data:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/admin/login/\")'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # ── PostgreSQL 16 ───────────────────────────────────────
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bidkori_db}
+      POSTGRES_USER: ${POSTGRES_USER:-bidkori_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bidkori_pass}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-bidkori_user} -d ${POSTGRES_DB:-bidkori_db}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Redis 7 (Channel Layer + Celery Broker) ─────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  # ── Celery Worker ───────────────────────────────────────
+  celery_worker:
+    build: .
+    command: celery -A bidkori_core worker --loglevel=info
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - media_data:/app/media
+    depends_on:
+      web:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  # ── Celery Beat Scheduler ──────────────────────────────
+  celery_beat:
+    build: .
+    command: celery -A bidkori_core beat --loglevel=info
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    depends_on:
+      web:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  static_data:
+  media_data:

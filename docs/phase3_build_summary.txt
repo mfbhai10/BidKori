@@ -1,0 +1,184 @@
+===============================================================================
+ BidKori — Phase 3 Build Summary
+ Real-Time WebSocket Bidding Engine
+ Generated: 2026-09-10
+===============================================================================
+
+1. WEBSOCKET CONSUMER (auctions/consumers.py)
+──────────────────────────────────────────────
+   AuctionBidConsumer (AsyncJsonWebsocketConsumer)
+
+   Route: ws/auctions/<uuid:auction_id>/
+
+   connect():
+     • Authenticates via Django session (AuthMiddlewareStack)
+     • Joins auction broadcast group: auction_{id}
+     • Authenticated users also join private channel: user_{id}
+     • Sends full initial state (clock-sync, current_bid, recent bids)
+
+   receive_json() — place_bid:
+     • Uses select_for_update() inside transaction.atomic() on Auction row
+     • Validates:  auction.status == LIVE
+     • Validates:  auction.product.seller_id != user.id  (shill guard)
+     • Validates:  amount >= current_bid + bid_increment
+     • Anti-Sniping: if end_time - now < 30s → extends end_time by 60s
+     • Persists Bid with client IP and user-agent
+     • Updates Auction.current_bid and Auction.winner
+
+   Broadcasts:
+     NEW_HIGHEST_BID → auction_{id} group (amount, masked bidder, timer)
+     OUTBID          → user_{prev_bidder_id} private group
+     BID_REJECTED    → sender socket only (with error message)
+     BID_ACCEPTED    → sender socket only (with bid_id)
+
+   Helpers:
+     _mask_email()   → admin@gmail.com → a***@g***.com
+     _get_client_ip() → extracts from X-Forwarded-For or scope.client
+     ping/pong       → periodic clock synchronization
+
+2. WEBSOCKET ROUTING & AUTHENTICATION (auctions/routing.py & auctions/middleware.py)
+──────────────────────────────────────────────────────────────────────────────────
+   • Route: re_path(r'^/?ws/auctions/(?P<auction_id>[^/]+)/?$', consumers.AuctionBidConsumer.as_asgi())
+     - Matches UUIDs, placeholder IDs, with or without leading and trailing slashes.
+   • Fallback Route: re_path(r'^.*$', consumers.NotFoundConsumer.as_asgi())
+     - Gracefully catches unmatched WebSocket paths and sends clean 4004 error without Daphne 500 crashes.
+   • Dual Auth Stack (JWTAuthMiddleware + AuthMiddlewareStack):
+     - Anonymous Viewers: scope['user'] = AnonymousUser(). Permitted read-only access to auction feeds.
+     - Session Auth: Resolves Django login cookies.
+     - SimpleJWT Auth: Supports ?token=<jwt> query parameter, Authorization: Bearer <jwt> headers,
+       and in-flight {"type": "authenticate", "token": "..."} messages.
+   • PostgreSQL Concurrency Fix:
+     - select_for_update(of=('self',)) isolates row-level locking to the Auction table,
+       preventing PostgreSQL "FOR UPDATE cannot be applied to the nullable side of an outer join" errors.
+
+3. ASGI CONFIGURATION (bidkori_core/asgi.py)
+────────────────────────────────────────────
+   Updated ProtocolTypeRouter to wrap WebSocket routes with AuthMiddlewareStack and JWTAuthMiddleware:
+     http:      → Django ASGI app
+     websocket: → AuthMiddlewareStack(JWTAuthMiddleware(URLRouter(auction routing)))
+
+
+4. CELERY BEAT LIFECYCLE TASK (auctions/tasks.py)
+─────────────────────────────────────────────────
+   transition_auction_states()
+   Runs every 5 seconds (CELERY_BEAT_SCHEDULE in settings.py)
+
+   SCHEDULED → LIVE:
+     • When start_time <= now()
+     • Sets current_bid = starting_bid
+     • Broadcasts AUCTION_STARTED to WebSocket group
+
+   LIVE → ENDED:
+     • When end_time <= now()
+     • If current_bid > 0 AND (reserve_price is null OR current_bid >= reserve_price):
+       → Status = READY_TO_SHIP
+     • Else:
+       → Status = NO_WINNER, winner = null
+     • Broadcasts AUCTION_ENDED with winner announcement
+
+5. AUCTION ROOM VIEW (auctions/views.py)
+─────────────────────────────────────────
+   AuctionRoomView (DetailView)
+     • Loads auction + product + seller + winner (select_related)
+     • Passes last 20 bids, bid count, is_seller flag, server_time
+     • Template: templates/auctions/auction_room.html
+
+6. FRONTEND LIVE AUCTION ROOM
+──────────────────────────────
+   templates/auctions/auction_room.html (extends base.html)
+
+   Layout:
+     • Left column (2/5): Product image, title, category, condition
+     • Right column (3/5): Countdown, current bid, bid input, history
+
+   Countdown Timer:
+     • Server-synchronized using clock offset = server_time - client_time
+     • Updates every 200ms for smooth display
+     • Color urgency: white → amber (< 5 min) → red (< 60s)
+
+   Bid Input:
+     • Number input with ৳ currency prefix
+     • Quick increment buttons: +৳100, +৳500, +৳1,000, +৳5,000
+     • Enter key support
+     • Loading spinner during submission
+
+   Real-Time Updates (via WebSocket):
+     • NEW_HIGHEST_BID → updates current_bid, bid count, timer, history
+     • OUTBID → red alert banner with new amount
+     • ANTI_SNIPE → amber banner "Timer extended by 60s"
+     • AUCTION_STARTED → transitions UI to LIVE state
+     • AUCTION_ENDED → shows overlay with winner & final amount
+
+   Status Pills:
+     ● LIVE (green, pulsing dot)
+     ◷ SCHEDULED (blue)
+     📦 READY_TO_SHIP (amber)
+     ✕ NO_WINNER (red)
+     ■ ENDED (gray)
+
+   Connection Resilience:
+     • Auto-reconnect with exponential backoff (1s → 30s)
+     • Periodic ping/pong clock sync every 30s
+     • Full state refresh on reconnect
+
+   Auth Handling:
+     • Authenticated users → show bid panel
+     • Anonymous users → show login prompt
+     • Sellers → bid panel hidden (cannot self-bid)
+
+7. CELERY BEAT SCHEDULE (settings.py)
+─────────────────────────────────────
+   CELERY_BEAT_SCHEDULE = {
+       'transition-auction-states': {
+           'task': 'auctions.tasks.transition_auction_states',
+           'schedule': 5.0,
+       },
+   }
+
+8. FILES CREATED / MODIFIED
+────────────────────────────
+   NEW:
+     auctions/consumers.py                  — WebSocket bid consumer
+     auctions/routing.py                    — WebSocket URL routing
+     auctions/tasks.py                      — Celery Beat lifecycle task
+     auctions/views.py                      — Auction room template view
+     auctions/urls.py                       — Auction URL routes
+     templates/auctions/auction_room.html   — Live auction room UI
+
+   MODIFIED:
+     bidkori_core/asgi.py                   — Wired WebSocket routing
+     bidkori_core/settings.py               — Added CELERY_BEAT_SCHEDULE
+     bidkori_core/urls.py                   — Added /auctions/ route
+
+9. WEBSOCKET MESSAGE PROTOCOL
+──────────────────────────────
+   Client → Server:
+     { type: "place_bid", amount: 1500 }
+     { type: "ping" }
+
+   Server → Client (broadcast):
+     { type: "connection_established", ... }   (full state + clock sync)
+     { type: "new_highest_bid", amount, bidder_display, bid_count, end_time }
+     { type: "auction_started", ... }
+     { type: "auction_ended", final_status, winner_display, final_amount }
+
+   Server → Client (private):
+     { type: "outbid", new_amount, your_last_bid, product_title }
+
+   Server → Sender only:
+     { type: "bid_accepted", bid_id, amount }
+     { type: "bid_rejected", error }
+     { type: "pong", server_time }
+
+10. HOW TO TEST
+───────────────
+   1. Create a product + auction via /seller/create-listing/
+   2. Navigate to /auctions/<uuid>/
+   3. Open a second browser/incognito window with a different user
+   4. Place bids and observe real-time updates in both windows
+   5. Watch the countdown and anti-sniping extension
+   6. Let the auction expire and observe AUCTION_ENDED broadcast
+
+===============================================================================
+ Next Phase: Phase 4 — Post-Auction Monetization & Dashboards
+===============================================================================
