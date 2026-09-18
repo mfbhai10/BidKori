@@ -47,9 +47,13 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
-    """Read-only user profile serializer."""
+    """Read-only user profile serializer (with writable delivery fields)."""
 
     class Meta:
         model = User
-        fields = ('id', 'email', 'username', 'phone', 'role', 'is_verified', 'created_at')
-        read_only_fields = ('id', 'is_verified', 'created_at')
+        fields = (
+            'id', 'email', 'username', 'phone', 'role',
+            'is_verified', 'full_name', 'shipping_address', 'created_at',
+        )
+        read_only_fields = ('id', 'email', 'is_verified', 'created_at')
+

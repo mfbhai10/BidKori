@@ -66,6 +66,16 @@
                     <a href="/seller/create-listing/" class="text-sm font-medium text-gray-300 hover:text-brand-400 transition-colors">
                         + New Listing
                     </a>
+                    {% if user.is_authenticated %}
+                        {% if user.is_seller %}
+                        <a href="/seller/dashboard/" class="text-sm font-medium text-gray-300 hover:text-brand-400 transition-colors">
+                            Seller Dashboard
+                        </a>
+                        {% endif %}
+                        <a href="/buyer/dashboard/" class="text-sm font-medium text-gray-300 hover:text-brand-400 transition-colors">
+                            My Bids
+                        </a>
+                    {% endif %}
                     <a href="/admin/" class="text-sm font-medium text-gray-400 hover:text-gray-200 transition-colors">
                         Admin
                     </a>

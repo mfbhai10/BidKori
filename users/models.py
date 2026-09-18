@@ -41,6 +41,17 @@ class User(AbstractUser):
         default=Role.BUYER,
     )
     is_verified = models.BooleanField(default=False)
+    full_name = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text='Full name for delivery / display purposes.',
+    )
+    shipping_address = models.TextField(
+        blank=True,
+        default='',
+        help_text='Delivery address. Remains masked until post-auction settlement.',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     # Use email as the login field instead of username

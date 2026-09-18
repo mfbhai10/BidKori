@@ -1,0 +1,240 @@
+================================================================================
+BidKori — Phase 4 Build Summary
+Post-Auction Monetization Engine, Contact Unlock & User Dashboards
+================================================================================
+Date: September 18, 2026
+Phase: 4 of 5 (per PROJECT_BLUEPRINT.md §5)
+================================================================================
+
+OVERVIEW
+--------
+Phase 4 implements the post-auction monetization engine that controls how
+sellers access buyer delivery information after an auction concludes. It
+enforces the platform's core revenue model (5% platform fee vs. Premium GMV
+allowance) and delivers dedicated dashboards for both sellers and buyers.
+
+This phase strictly follows:
+  - .antigravityrules Rule 4: Data Isolation & Masked Contact Protection
+  - PROJECT_BLUEPRINT.md §4.4: Monetization & Contact Protection
+  - PROJECT_BLUEPRINT.md §5 Phase 4: Post-Auction Monetization & Dashboards
+
+
+================================================================================
+WHAT WAS BUILT
+================================================================================
+
+1. CONTACT UNLOCK API
+   File: billing/views.py → UnlockBuyerContactView
+   Endpoint: POST /api/auctions/<uuid:auction_id>/unlock-buyer/
+
+   This is the core monetization endpoint. It enforces Rule 4 — buyer
+   delivery details (name, phone, shipping address) remain completely
+   hidden until the seller pays the platform fee or uses their Premium
+   GMV allowance.
+
+   Permission: Only the seller who owns auction.product can call this.
+   Anyone else receives HTTP 403.
+
+   Validation:
+     - Auction must be in READY_TO_SHIP or SETTLEMENT status
+     - LIVE or ENDED auctions are rejected with HTTP 400
+     - Already-completed auctions return the cached unlock data (idempotent)
+     - Auctions without a winner are rejected
+
+   Settlement (Atomic Transaction):
+     The entire settlement runs inside transaction.atomic() with
+     select_for_update() on SellerProfile to prevent race conditions
+     when two browser tabs try to unlock simultaneously.
+
+     Path A — Premium GMV Subscriber:
+       If seller has is_premium=True AND remaining GMV >= final amount:
+       → Deducts auction.current_bid from used_gmv
+       → Sets platform_fee = ৳0.00
+       → Sets covered_by_subscription = True
+
+     Path B — Standard Pay-As-You-Sell:
+       → Computes platform_fee = current_bid × 5%
+       → Sets covered_by_subscription = False
+
+     After settlement:
+       → Creates billing.Transaction (is_unlocked=True, COMPLETED)
+       → Transitions auction.status → COMPLETED
+       → Returns unmasked buyer name, phone, email, shipping address
+
+2. PREMIUM SUBSCRIPTION API
+   File: billing/views.py → SubscribePremiumView
+   Endpoint: POST /api/seller/subscribe-premium/
+
+   Mock/initializer endpoint for the Premium GMV subscription tier.
+   When called by an authenticated seller:
+     → Sets is_premium = True
+     → Sets monthly_gmv_allowance = ৳200,000.00
+     → Resets used_gmv = ৳0.00
+     → Sets billing_cycle_end = 30 days from now
+
+3. BILLING SERIALIZERS
+   File: billing/serializers.py
+
+   TransactionSerializer — read-only serializer for transaction records
+   with nested buyer/seller email and auction title.
+
+   UnlockResponseSerializer — structures the unmasked buyer contact
+   data returned after successful settlement.
+
+4. BILLING URL ROUTING
+   File: billing/urls.py
+
+   Routes:
+     POST /api/auctions/<uuid>/unlock-buyer/ → UnlockBuyerContactView
+     POST /api/seller/subscribe-premium/     → SubscribePremiumView
+
+5. SELLER DASHBOARD
+   View: billing/dashboard_views.py → SellerDashboardView
+   Template: templates/billing/seller_dashboard.html
+   URL: GET /seller/dashboard/
+
+   Features:
+     a) Summary Cards (glassmorphic design):
+        - Total Sales GMV (sum of all completed transaction amounts)
+        - Platform Fees Saved (5% of subscription-covered sales)
+        - Completed Auctions count
+
+     b) GMV Usage Progress Bar (Premium sellers only):
+        - Visual bar showing used_gmv vs monthly_gmv_allowance
+        - Percentage indicator
+        - Billing cycle expiry date
+
+     c) Filterable Tabs:
+        - "Active & Scheduled" — DRAFT/SCHEDULED/LIVE auctions with
+          status indicators and links to auction rooms
+        - "Ready to Ship" — auctions awaiting contact unlock with a
+          prominent "Unlock Buyer Details" CTA button that calls the
+          API via fetch() and reveals buyer info inline
+        - "Completed" — auctions with unlocked buyer name, phone,
+          and shipping address displayed in a data grid
+
+     d) Premium Upgrade Button:
+        - Non-premium sellers see an "Upgrade to Premium" button
+        - Calls /api/seller/subscribe-premium/ and reloads on success
+        - Premium sellers see a "Premium Seller" badge instead
+
+6. BUYER DASHBOARD
+   View: billing/dashboard_views.py → BuyerDashboardView
+   Template: templates/billing/buyer_dashboard.html
+   URL: GET /buyer/dashboard/
+
+   Features:
+     a) Active Bids Tab:
+        - Shows live auctions where the buyer placed bids
+        - Displays buyer's highest bid vs current auction price
+        - "Highest Bidder" (green) or "Outbid" (red) status badges
+        - "Join Room →" links to live auction WebSocket rooms
+
+     b) Won Auctions Tab:
+        - Shows auctions won by the buyer (READY_TO_SHIP, SETTLEMENT,
+          COMPLETED statuses)
+        - Payment status indicator (Confirmed / Awaiting Seller Unlock)
+        - Seller contact info (email, phone) visible once unlocked
+        - Delivery address form with full_name and shipping_address
+          fields — saves via PUT /api/auth/profile/
+
+     c) Watchlist Tab:
+        - Lists scheduled/draft auctions the buyer has previously
+          interacted with (bid on)
+        - Start times and direct links to auction rooms
+        - Placeholder for future bookmarking feature
+
+7. USER MODEL EXTENSION
+   File: users/models.py
+
+   Added fields to User:
+     - full_name (CharField, max 255, blank, default '')
+     - shipping_address (TextField, blank, default '')
+
+   These fields store buyer delivery information that remains masked
+   until post-auction settlement (Rule 4). The UserSerializer was
+   updated to expose these fields for read/write via the profile API.
+
+   Migration: users/migrations/0002_user_full_name_user_shipping_address.py
+
+8. NAVBAR UPDATE
+   File: templates/base.html
+
+   Added conditional navigation links:
+     - "Seller Dashboard" — visible only to authenticated sellers
+     - "My Bids" — visible to all authenticated users
+   Links appear between "+ New Listing" and "Admin" in the navbar.
+
+9. ROOT URL WIRING
+   File: bidkori_core/urls.py
+
+   Added routes:
+     - path('api/', include('billing.urls'))
+     - path('seller/dashboard/', SellerDashboardView)
+     - path('buyer/dashboard/', BuyerDashboardView)
+
+
+================================================================================
+ARCHITECTURE & SECURITY NOTES
+================================================================================
+
+RACE CONDITION PREVENTION:
+  The contact unlock API uses the same select_for_update() pattern
+  established in Phase 3's bid processing. The SellerProfile row is
+  exclusively locked before any GMV balance check or deduction, preventing
+  double-deduction from concurrent requests.
+
+MASKED CONTACT PROTECTION (Rule 4):
+  Buyer delivery details (full_name, phone, shipping_address) are NEVER
+  exposed in any API response or template until is_unlocked=True on the
+  corresponding Transaction record. The unlock endpoint is the ONLY way
+  to reveal this data, and it requires fee settlement first.
+
+IDEMPOTENT UNLOCK:
+  If the unlock endpoint is called on an already-completed auction, it
+  returns the existing transaction data (HTTP 200) rather than creating
+  a duplicate. This prevents accidental double-charges.
+
+SESSION AUTH FOR DASHBOARDS:
+  Dashboard template views use Django's LoginRequiredMixin with session
+  authentication (configured alongside JWT in DRF settings). Template
+  views don't need JWT — the session middleware handles auth.
+
+
+================================================================================
+FILES CREATED / MODIFIED
+================================================================================
+
+CREATED:
+  billing/serializers.py              — Transaction & unlock response serializers
+  billing/views.py                    — UnlockBuyerContactView, SubscribePremiumView
+  billing/urls.py                     — Billing API URL routing
+  billing/dashboard_views.py          — SellerDashboardView, BuyerDashboardView
+  templates/billing/seller_dashboard.html  — Seller dashboard template
+  templates/billing/buyer_dashboard.html   — Buyer dashboard template
+  users/migrations/0002_*             — Migration for User model fields
+  docs/phase4_build_summary.txt       — This file
+
+MODIFIED:
+  users/models.py                     — Added full_name, shipping_address
+  users/serializers.py                — Added delivery fields to UserSerializer
+  bidkori_core/urls.py                — Wired billing API + dashboard routes
+  templates/base.html                 — Added dashboard nav links
+
+
+================================================================================
+RUNNING MIGRATIONS
+================================================================================
+
+After starting Docker containers:
+
+  docker compose up -d
+  docker compose exec web python manage.py migrate
+
+The migration 0002_user_full_name_user_shipping_address will add
+the full_name and shipping_address columns to the users_user table.
+
+
+================================================================================
+END OF PHASE 4 BUILD SUMMARY
+================================================================================

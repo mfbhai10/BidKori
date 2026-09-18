@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+{% block title %}Buyer Dashboard{% endblock %}
+{% block meta_description %}Track your bids, won auctions, and watchlist on BidKori.{% endblock %}
+
+{% block content %}
+<!-- ── Page Header ──────────────────────────────────────── -->
+<div class="mb-8 animate-fade-in">
+    <h1 class="text-3xl font-extrabold text-white tracking-tight">Buyer Dashboard</h1>
+    <p class="text-gray-400 mt-1 text-sm">Track your bids, manage won auctions, and update delivery details.</p>
+</div>
+
+<!-- ── Filterable Tabs ─────────────────────────────────── -->
+<div class="animate-fade-in" style="animation-delay:0.1s">
+    <div class="flex border-b border-slate-700/50 mb-6 gap-1">
+        <button class="tab-btn active-tab px-4 py-2.5 text-sm font-semibold rounded-t-xl transition-all duration-200"
+                data-tab="active" id="tab-active">
+            Active Bids
+            <span class="ml-1.5 px-2 py-0.5 rounded-full bg-slate-700/60 text-xs">{{ active_auctions|length }}</span>
+        </button>
+        <button class="tab-btn px-4 py-2.5 text-sm font-semibold rounded-t-xl transition-all duration-200"
+                data-tab="won" id="tab-won">
+            Won Auctions
+            <span class="ml-1.5 px-2 py-0.5 rounded-full bg-slate-700/60 text-xs">{{ won_auctions|length }}</span>
+        </button>
+        <button class="tab-btn px-4 py-2.5 text-sm font-semibold rounded-t-xl transition-all duration-200"
+                data-tab="watchlist" id="tab-watchlist">
+            Watchlist
+            <span class="ml-1.5 px-2 py-0.5 rounded-full bg-slate-700/60 text-xs">{{ watchlist_auctions|length }}</span>
+        </button>
+    </div>
+
+    <!-- ── Tab: Active Bids ────────────────────────────── -->
+    <div id="panel-active" class="tab-panel">
+        {% if active_auctions %}
+        <div class="space-y-4">
+            {% for auction in active_auctions %}
+            <div class="glass rounded-2xl border border-slate-700/50 p-5 hover:border-brand-500/30 transition-all duration-300">
+                <div class="flex items-center justify-between flex-wrap gap-4">
+                    <div class="flex items-center gap-4">
+                        {% if auction.product.image %}
+                        <img src="{{ auction.product.image.url }}" alt="{{ auction.product.title }}"
+                             class="w-14 h-14 rounded-xl object-cover border border-slate-600/50">
+                        {% else %}
+                        <div class="w-14 h-14 rounded-xl bg-slate-700/60 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"/></svg>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <h3 class="text-white font-semibold">{{ auction.product.title }}</h3>
+                            <div class="flex items-center gap-3 mt-1">
+                                <span class="text-xs text-gray-400">Current: <span class="text-brand-400 font-bold">৳{{ auction.current_bid|floatformat:2 }}</span></span>
+                                <span class="text-xs text-gray-500">Your bid: <span class="text-white font-medium">৳{{ auction.my_bid_amount|floatformat:2 }}</span></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        {% if auction.is_winning %}
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-500/15 border border-brand-500/30 text-brand-400 text-xs font-bold">
+                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                            Highest Bidder
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-bold">
+                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+                            Outbid
+                        </span>
+                        {% endif %}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/15 border border-green-500/30 text-green-400 text-xs font-semibold">
+                            <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>LIVE
+                        </span>
+                        <a href="/auctions/{{ auction.id }}/"
+                           class="px-4 py-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-500 hover:to-brand-600 text-white text-sm font-semibold shadow-lg shadow-brand-500/20 hover:shadow-brand-500/30 transition-all duration-300 hover:-translate-y-0.5">
+                            Join Room →
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="glass rounded-2xl border border-slate-700/50 p-12 text-center">
+            <svg class="w-12 h-12 text-slate-600 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <p class="text-gray-400 text-sm">No active bids right now.</p>
+            <p class="text-gray-500 text-xs mt-1">Browse live auctions and place your first bid!</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ── Tab: Won Auctions ───────────────────────────── -->
+    <div id="panel-won" class="tab-panel hidden">
+        {% if won_auctions %}
+        <div class="space-y-4">
+            {% for auction in won_auctions %}
+            <div class="glass rounded-2xl border border-slate-700/50 p-5 hover:border-brand-500/20 transition-all duration-300">
+                <div class="flex items-center justify-between flex-wrap gap-4 mb-4">
+                    <div class="flex items-center gap-4">
+                        {% if auction.product.image %}
+                        <img src="{{ auction.product.image.url }}" alt="{{ auction.product.title }}"
+                             class="w-14 h-14 rounded-xl object-cover border border-slate-600/50">
+                        {% else %}
+                        <div class="w-14 h-14 rounded-xl bg-slate-700/60 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"/></svg>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <h3 class="text-white font-semibold">{{ auction.product.title }}</h3>
+                            <div class="flex items-center gap-3 mt-1">
+                                <span class="text-sm text-brand-400 font-bold">৳{{ auction.current_bid|floatformat:2 }}</span>
+                                {% if auction.status == 'COMPLETED' %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-brand-500/15 border border-brand-500/30 text-brand-400 text-[10px] font-semibold">Completed</span>
+                                {% elif auction.status == 'READY_TO_SHIP' %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10px] font-semibold">Awaiting Seller</span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-400 text-[10px] font-semibold">{{ auction.get_status_display }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% if auction.transaction and auction.transaction.is_unlocked %}
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 text-xs font-medium">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        Payment Confirmed
+                    </span>
+                    {% else %}
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium">
+                        <svg class="w-3.5 h-3.5 animate-pulse" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
+                        Awaiting Seller Unlock
+                    </span>
+                    {% endif %}
+                </div>
+
+                <!-- Seller Contact Info (shown once unlocked) -->
+                {% if auction.transaction and auction.transaction.is_unlocked %}
+                <div class="p-4 rounded-xl bg-slate-800/40 border border-brand-500/15 mb-4">
+                    <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Seller Contact</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <p class="text-xs text-gray-400">Email</p>
+                            <p class="text-sm text-white font-medium">{{ auction.product.seller.email }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-400">Phone</p>
+                            <p class="text-sm text-white font-medium">{{ auction.product.seller.phone }}</p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Delivery Address Section -->
+                <div class="p-4 rounded-xl bg-slate-800/40 border border-slate-700/40">
+                    <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Your Delivery Address</p>
+                    {% if user.shipping_address %}
+                    <div class="flex items-start justify-between gap-4" id="address-display-{{ auction.id }}">
+                        <div>
+                            <p class="text-sm text-white font-medium">{{ user.full_name|default:user.username }}</p>
+                            <p class="text-sm text-gray-300 mt-0.5">{{ user.shipping_address }}</p>
+                            <p class="text-sm text-gray-400">{{ user.phone }}</p>
+                        </div>
+                        <button onclick="toggleAddressForm('{{ auction.id }}')"
+                                class="px-3 py-1.5 rounded-lg bg-slate-700/60 hover:bg-slate-600/60 text-xs text-gray-300 hover:text-white transition-colors shrink-0">
+                            Edit
+                        </button>
+                    </div>
+                    {% endif %}
+                    <form id="address-form-{{ auction.id }}" class="{% if user.shipping_address %}hidden{% endif %} space-y-3"
+                          onsubmit="submitAddress(event, '{{ auction.id }}')">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Full Name</label>
+                            <input type="text" name="full_name" value="{{ user.full_name }}" required
+                                   class="w-full px-3 py-2 rounded-lg bg-slate-800/80 border border-slate-600/50 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/30 transition-colors"
+                                   placeholder="Your full name">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Shipping Address</label>
+                            <textarea name="shipping_address" rows="2" required
+                                      class="w-full px-3 py-2 rounded-lg bg-slate-800/80 border border-slate-600/50 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/30 transition-colors resize-none"
+                                      placeholder="House, Road, Area, City, Division">{{ user.shipping_address }}</textarea>
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="submit"
+                                    class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-sm font-semibold transition-colors">
+                                Save Address
+                            </button>
+                            {% if user.shipping_address %}
+                            <button type="button" onclick="toggleAddressForm('{{ auction.id }}')"
+                                    class="px-4 py-2 rounded-lg bg-slate-700/60 hover:bg-slate-600/60 text-gray-300 text-sm transition-colors">
+                                Cancel
+                            </button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="glass rounded-2xl border border-slate-700/50 p-12 text-center">
+            <svg class="w-12 h-12 text-slate-600 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+            <p class="text-gray-400 text-sm">You haven't won any auctions yet.</p>
+            <p class="text-gray-500 text-xs mt-1">Keep bidding — your win is just around the corner!</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ── Tab: Watchlist ──────────────────────────────── -->
+    <div id="panel-watchlist" class="tab-panel hidden">
+        {% if watchlist_auctions %}
+        <div class="space-y-4">
+            {% for auction in watchlist_auctions %}
+            <div class="glass rounded-2xl border border-slate-700/50 p-5 hover:border-purple-500/30 transition-all duration-300">
+                <div class="flex items-center justify-between flex-wrap gap-3">
+                    <div class="flex items-center gap-4">
+                        {% if auction.product.image %}
+                        <img src="{{ auction.product.image.url }}" alt="{{ auction.product.title }}"
+                             class="w-14 h-14 rounded-xl object-cover border border-slate-600/50">
+                        {% else %}
+                        <div class="w-14 h-14 rounded-xl bg-slate-700/60 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"/></svg>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <h3 class="text-white font-semibold">{{ auction.product.title }}</h3>
+                            <div class="flex items-center gap-3 mt-1">
+                                <span class="text-xs text-gray-400">Starting: ৳{{ auction.starting_bid|floatformat:2 }}</span>
+                                {% if auction.status == 'SCHEDULED' %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-400 text-[10px] font-semibold">Upcoming</span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-500/15 border border-slate-500/30 text-slate-400 text-[10px] font-semibold">{{ auction.get_status_display }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-500">Starts: {{ auction.start_time|date:"M d, H:i" }}</span>
+                        <a href="/auctions/{{ auction.id }}/"
+                           class="px-3 py-1.5 rounded-lg bg-slate-700/60 hover:bg-slate-600/60 text-sm text-gray-300 hover:text-white transition-colors">
+                            View →
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="glass rounded-2xl border border-slate-700/50 p-12 text-center">
+            <svg class="w-12 h-12 text-slate-600 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+            <p class="text-gray-400 text-sm">Your watchlist is empty.</p>
+            <p class="text-gray-500 text-xs mt-1">Upcoming auctions you've interacted with will appear here.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+    .tab-btn { color: #94a3b8; background: transparent; border-bottom: 2px solid transparent; }
+    .tab-btn:hover { color: #e2e8f0; background: rgba(30,41,59,0.4); }
+    .tab-btn.active-tab { color: #34d399; border-bottom-color: #34d399; background: rgba(16,185,129,0.08); }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    /* ── Tab Switching ──────────────────────────────────── */
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active-tab'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+            btn.classList.add('active-tab');
+            document.getElementById('panel-' + btn.dataset.tab).classList.remove('hidden');
+        });
+    });
+
+    /* ── Toggle Address Form ───────────────────────────── */
+    function toggleAddressForm(auctionId) {
+        const form = document.getElementById('address-form-' + auctionId);
+        const display = document.getElementById('address-display-' + auctionId);
+        form.classList.toggle('hidden');
+        if (display) display.classList.toggle('hidden');
+    }
+
+    /* ── Submit Delivery Address ────────────────────────── */
+    async function submitAddress(event, auctionId) {
+        event.preventDefault();
+        const form = event.target;
+        const fullName = form.querySelector('[name="full_name"]').value;
+        const address = form.querySelector('[name="shipping_address"]').value;
+
+        const btn = form.querySelector('[type="submit"]');
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+
+        try {
+            const resp = await fetch('/api/auth/profile/', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': CSRF_TOKEN,
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    full_name: fullName,
+                    shipping_address: address,
+                }),
+            });
+
+            if (resp.ok) {
+                showToast('Delivery address saved successfully!', 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                const data = await resp.json();
+                showToast(data.detail || 'Failed to save address.', 'error');
+                btn.disabled = false;
+                btn.textContent = 'Save Address';
+            }
+        } catch (err) {
+            showToast('Network error. Please try again.', 'error');
+            btn.disabled = false;
+            btn.textContent = 'Save Address';
+        }
+    }
+</script>
+{% endblock %}
